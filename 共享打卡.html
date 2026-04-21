@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>静谧时光 多人规划</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet"/>
+
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: '#6b7280',
+        secondary: '#94a3b8',
+        accent: '#b4a7d6',
+        light: '#f8fafc',
+        dark: '#1e293b',
+      },
+      fontFamily: {
+        sans: ['Inter','system-ui','sans-serif'],
+      },
+    }
+  }
+}
+</script>
+
+<style type="text/tailwindcss">
+@layer utilities {
+  .glass {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .card-shadow {
+    box-shadow: 0 8px 32px rgba(107,114,128,0.1);
+  }
+  .text-gradient {
+    background: linear-gradient(135deg, #b4a7d6, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .task-complete {
+    text-decoration: line-through;
+    color: #94a3b8;
+  }
+  .avatar {
+    object-fit: cover;
+  }
+  .task-img {
+    max-height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+  .comment-box {
+    max-height: 100px;
+    overflow-y: auto;
+  }
+}
+</style>
+</head>
+
+<body class="bg-gradient-to-br from-light to-secondary/20 min-h-screen font-sans text-dark">
+
+<header class="glass fixed top-0 left-0 right-0 z-50 px-4 py-3 card-shadow">
+  <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+    <h1 class="text-[clamp(1.1rem,3vw,1.6rem)] font-bold text-gradient">
+      <i class="fa fa-leaf mr-2"></i>静谧时光 多人规划
+    </h1>
+    <p id="current-time" class="text-sm text-primary"></p>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto pt-20 pb-20 px-3">
+  <div class="glass rounded-xl p-4 mb-6 card-shadow">
+    <div class="flex flex-wrap gap-3 items-center justify-center sm:justify-start">
+      <span class="text-sm text-primary">当前用户：</span>
+      <select id="currentUserSelect" class="px-3 py-1.5 rounded-lg border border-secondary/30 bg-white/90">
+        <option value="user1">用户1</option>
+        <option value="user2">用户2</option>
+        <option value="user3">用户3</option>
+        <option value="user4">用户4</option>
+      </select>
+
+      <input type="text" id="nicknameInput" placeholder="设置昵称" 
+        class="px-3 py-1.5 rounded-lg border border-secondary/30 bg-white/90 max-w-[120px]">
+      <button onclick="saveNickname()" class="px-3 py-1.5 bg-accent/80 text-white rounded-lg text-sm">保存昵称</button>
+
+      <label class="cursor-pointer ml-2">
+        <input type="file" accept="image/*" onchange="uploadAvatar()" class="hidden">
+        <div class="w-9 h-9 rounded-full overflow-hidden border border-accent/30">
+          <img id="avatarPreview" class="avatar w-full h-full" src="https://picsum.photos/seed/avatar/100/100">
+        </div>
+      </label>
+    </div>
+  </div>
+
+  <div id="reminderArea" class="glass rounded-xl p-3 mb-6 card-shadow text-accent text-sm hidden">
+    <i class="fa fa-bell mr-2"></i><span id="reminderText"></span>
+  </div>
+
+  <div id="allUsersTasks" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"></div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="glass rounded-2xl p-5 card-shadow">
+      <h2 class="text-lg font-semibold text-accent mb-3 flex items-center">
+        <i class="fa fa-star mr-2"></i>我的长期目标
+      </h2>
+      <div class="space-y-2 mb-4">
+        <input type="text" id="longText" placeholder="输入长期目标"
+          class="w-full px-3 py-2 rounded-lg border border-secondary/30 bg-white/90">
+        <button onclick="addLong()" class="w-full bg-accent text-white rounded-lg hover:opacity-90 py-2">
+          添加长期目标
+        </button>
+      </div>
+      <div id="longList" class="space-y-3 max-h-[320px] overflow-y-auto pr-1"></div>
+    </div>
+
+    <div class="glass rounded-2xl p-5 card-shadow">
+      <h2 class="text-lg font-semibold text-accent mb-3 flex items-center">
+        <i class="fa fa-check-square-o mr-2"></i>我的今日短期任务
+      </h2>
+      <div class="space-y-2 mb-4">
+        <input type="text" id="shortText" placeholder="输入今日待办"
+          class="w-full px-3 py-2 rounded-lg border border-secondary/30 bg-white/90">
+        <button onclick="addShort()" class="w-full bg-accent text-white rounded-lg hover:opacity-90 py-2">
+          添加今日任务
+        </button>
+      </div>
+      <div id="shortList" class="space-y-3 max-h-[320px] overflow-y-auto pr-1"></div>
+    </div>
+  </div>
+</main>
+
+<div id="checkinModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+  <div class="absolute inset-0 bg-dark/50 backdrop-blur-sm"></div>
+  <div class="glass relative rounded-3xl p-6 max-w-md w-full">
+    <h3 class="text-xl font-bold text-accent mb-4">完成今日打卡</h3>
+    <p id="checkinTaskTitle" class="mb-3 text-primary"></p>
+    <label class="block mb-2 text-sm">上传打卡图片（可选）</label>
+    <input type="file" accept="image/*" id="checkinImage" class="mb-4 w-full">
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeCheckinModal()" class="px-4 py-2 border border-secondary rounded-lg">取消</button>
+      <button onclick="confirmCheckin()" class="px-4 py-2 bg-accent text-white rounded-lg">确认打卡</button>
+    </div>
+  </div>
+</div>
+
+<div id="celebrateModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+  <div class="absolute inset-0 bg-dark/50 backdrop-blur-sm"></div>
+  <div class="glass relative rounded-3xl p-8 max-w-md w-full text-center">
+    <div class="text-6xl mb-3">🎉✨</div>
+    <h2 class="text-2xl font-bold text-gradient mb-2">完成得很棒！</h2>
+    <p id="celebrateText" class="text-primary mb-1"></p>
+    <p id="celebrateTime" class="text-sm text-secondary"></p>
+    <button onclick="closeModal()" class="mt-6 px-6 py-2 bg-accent text-white rounded-lg">继续</button>
+  </div>
+</div>
+
+<script>
+const db = {
+  users: {
+    user1: { name: '用户1', avatar: 'https://picsum.photos/seed/u1/100/100', long: [], short: [] },
+    user2: { name: '用户2', avatar: 'https://picsum.photos/seed/u2/100/100', long: [], short: [] },
+    user3: { name: '用户3', avatar: 'https://picsum.photos/seed/u3/100/100', long: [], short: [] },
+    user4: { name: '用户4', avatar: 'https://picsum.photos/seed/u4/100/100', long: [], short: [] },
+  },
+  reminders: [],
+  currentCheckin: null
+};
+
+function updateTime() {
+  document.getElementById('current-time').innerText = new Date().toLocaleString('zh-CN');
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+function saveNickname() {
+  const uid = document.getElementById('currentUserSelect').value;
+  const name = document.getElementById('nicknameInput').value.trim();
+  if (name) {
+    db.users[uid].name = name;
+    alert('昵称已保存');
+    refreshAll();
+  }
+}
+
+function uploadAvatar() {
+  const input = event.target;
+  const user = document.getElementById('currentUserSelect').value;
+  if (!input.files?.[0]) return;
+  const url = URL.createObjectURL(input.files[0]);
+  db.users[user].avatar = url;
+  document.getElementById('avatarPreview').src = url;
+  refreshAll();
+}
+
+function addLong() {
+  const user = document.getElementById('currentUserSelect').value;
+  const text = document.getElementById('longText').value.trim();
+  if (!text) return;
+  db.users[user].long.push({
+    text, time: new Date().toLocaleString(), records: [], comments: []
+  });
+  document.getElementById('longText').value = '';
+  refreshAll();
+}
+
+function addShort() {
+  const user = document.getElementById('currentUserSelect').value;
+  const text = document.getElementById('shortText').value.trim();
+  if (!text) return;
+  db.users[user].short.push({
+    text, time: new Date().toLocaleString(), done: false, img: null, comments: []
+  });
+  document.getElementById('shortText').value = '';
+  refreshAll();
+}
+
+function openCheckinModal(uid, type, index) {
+  const currentUid = document.getElementById('currentUserSelect').value;
+  if (uid !== currentUid) {
+    alert('只能打卡自己的任务哦');
+    return;
+  }
+  const task = db.users[uid][type][index];
+  db.currentCheckin = { uid, type, index };
+  document.getElementById('checkinTaskTitle').innerText = task.text;
+  document.getElementById('checkinModal').classList.remove('hidden');
+  document.getElementById('checkinModal').classList.add('flex');
+}
+
+function closeCheckinModal() {
+  document.getElementById('checkinModal').classList.add('hidden');
+  db.currentCheckin = null;
+}
+
+function confirmCheckin() {
+  const { uid, type, index } = db.currentCheckin;
+  const file = document.getElementById('checkinImage').files[0];
+  const imgUrl = file ? URL.createObjectURL(file) : null;
+
+  if (type === 'short') {
+    const task = db.users[uid][type][index];
+    task.done = true;
+    task.img = imgUrl;
+    showCelebrate(task.text);
+  } else {
+    const task = db.users[uid][type][index];
+    task.records.push({
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString(),
+      img: imgUrl
+    });
+    showCelebrate(task.text);
+  }
+  closeCheckinModal();
+  refreshAll();
+}
+
+function sendRemind(uid) {
+  const fromUid = document.getElementById('currentUserSelect').value;
+  const fromName = db.users[fromUid].name;
+  db.reminders.push({
+    to: uid,
+    from: fromName,
+    time: new Date().toLocaleString()
+  });
+  alert('已发送打卡提醒');
+  refreshReminders();
+}
+
+function refreshReminders() {
+  const currentUid = document.getElementById('currentUserSelect').value;
+  const area = document.getElementById('reminderArea');
+  const textEl = document.getElementById('reminderText');
+  
+  const myReminders = db.reminders.filter(r => r.to === currentUid);
+  if (myReminders.length > 0) {
+    const last = myReminders[myReminders.length - 1];
+    textEl.innerText = last.from + ' 提醒你快去打卡！';
+    area.classList.remove('hidden');
+  }
+}
+
+function postComment(uid, type, index) {
+  const inputId = 'comment_' + uid + '_' + type + '_' + index;
+  const text = document.getElementById(inputId).value.trim();
+  if (!text) return;
+  const fromUid = document.getElementById('currentUserSelect').value;
+  const fromName = db.users[fromUid].name;
+  db.users[uid][type][index].comments.push({
+    name: fromName,
+    text: text,
+    time: new Date().toLocaleString()
+  });
+  document.getElementById(inputId).value = '';
+  refreshAll();
+}
+
+function showCelebrate(text) {
+  const m = document.getElementById('celebrateModal');
+  document.getElementById('celebrateText').innerText = '完成：' + text;
+  document.getElementById('celebrateTime').innerText = '完成时间：' + new Date().toLocaleString();
+  m.classList.remove('hidden');
+  m.classList.add('flex');
+}
+
+function closeModal() {
+  document.getElementById('celebrateModal').classList.add('hidden');
+}
+
+function renderTask(uid, type, item, index) {
+  const isLong = type === 'long';
+  let html = '';
+
+  if (isLong) {
+    html += '<div class="font-medium">' + item.text + '</div>';
+    html += '<div class="text-xs text-secondary">' + item.time + '</div>';
+    html += '<div class="mt-1"><button onclick="openCheckinModal(\'' + uid + '\',\'long\',' + index + ')" class="text-xs px-2 py-1 bg-accent/20 rounded-lg">今日打卡</button></div>';
+    if (item.records.length > 0) {
+      html += '<div class="mt-1 text-xs text-primary">打卡记录：' + item.records.length + ' 次</div>';
+      item.records.forEach(function(r) {
+        html += '<div class="text-xs text-secondary">' + r.date + ' ' + r.time + '</div>';
+        if (r.img) html += '<img src="' + r.img + '" class="task-img w-full mt-1">';
+      });
+    }
+  } else {
+    html += '<div class="' + (item.done ? 'task-complete' : '') + '">' + item.text + '</div>';
+    html += '<div class="text-xs text-secondary">' + item.time + '</div>';
+    if (item.img) html += '<img src="' + item.img + '" class="task-img w-full mt-1">';
+    if (!item.done) {
+      html += '<button onclick="openCheckinModal(\'' + uid + '\',\'short\',' + index + ')" class="mt-1 text-xs px-2 py-1 bg-accent/20 rounded-lg">完成打卡</button>';
+    }
+  }
+
+  html += '<div class="mt-2 border-t border-secondary/20 pt-2">';
+  item.comments.forEach(function(c) {
+    html += '<div class="text-xs"><span class="text-accent">' + c.name + '：</span>' + c.text + '</div>';
+  });
+  html += '<div class="mt-1 flex gap-1">';
+  html += '<input type="text" id="comment_' + uid + '_' + type + '_' + index + '" placeholder="说点什么" class="flex-1 text-xs px-2 py-1 rounded-lg border border-secondary/30">';
+  html += '<button onclick="postComment(\'' + uid + '\',\'' + type + '\',' + index + ')" class="text-xs px-2 py-1 bg-secondary/20 rounded-lg">发送</button>';
+  html += '</div></div>';
+
+  return html;
+}
+
+function renderUserCard(uid, data) {
+  const div = document.createElement('div');
+  div.className = 'glass rounded-xl p-4 card-shadow';
+  let html = '<div class="flex items-center gap-2 mb-3">';
+  html += '<img src="' + data.avatar + '" class="w-8 h-8 rounded-full avatar">';
+  html += '<span class="font-medium text-accent">' + data.name + '</span>';
+  html += '<button onclick="sendRemind(\'' + uid + '\')" class="ml-auto text-xs px-2 py-1 bg-secondary/20 rounded-lg text-primary"><i class="fa fa-bell mr-1"></i>提醒</button>';
+  html += '</div><div class="space-y-3"><div class="text-sm font-medium text-primary">长期目标</div>';
+
+  data.long.forEach(function(item, i) {
+    html += '<div class="bg-white/50 p-2 rounded-lg">' + renderTask(uid, 'long', item, i) + '</div>';
+  });
+
+  html += '<div class="text-sm font-medium text-primary mt-3">今日任务</div>';
+  data.short.forEach(function(item, i) {
+    html += '<div class="bg-white/50 p-2 rounded-lg">' + renderTask(uid, 'short', item, i) + '</div>';
+  });
+
+  div.innerHTML = html;
+  return div;
+}
+
+function refreshAll() {
+  const container = document.getElementById('allUsersTasks');
+  container.innerHTML = '';
+  Object.keys(db.users).forEach(function(uid) {
+    container.appendChild(renderUserCard(uid, db.users[uid]));
+  });
+
+  const u = document.getElementById('currentUserSelect').value;
+  document.getElementById('avatarPreview').src = db.users[u].avatar;
+  document.getElementById('nicknameInput').value = db.users[u].name;
+  refreshReminders();
+}
+
+document.getElementById('currentUserSelect').addEventListener('change', function() {
+  const u = document.getElementById('currentUserSelect').value;
+  document.getElementById('avatarPreview').src = db.users[u].avatar;
+  document.getElementById('nicknameInput').value = db.users[u].name;
+  refreshReminders();
+});
+
+refreshAll();
+</script>
+</body>
+</html>
